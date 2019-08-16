@@ -11,6 +11,7 @@
 @interface RNBluetoothLe : RCTEventEmitter <RCTBridgeModule, CBPeripheralManagerDelegate>
     
     @property (retain) CBPeripheralManager* peripheralManager;
+    @property (retain) NSMutableDictionary<NSString*, CBService*>* services;
 
 @end
   

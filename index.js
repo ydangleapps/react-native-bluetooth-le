@@ -1,9 +1,8 @@
 
 import uuidv4 from 'uuid/v4'
 import uuidv5 from 'uuid/v5'
-import BLEPeripheral from './BLEPeripheral'
 import Characteristic from './Characteristic'
-import { NativeModules } from 'react-native'
+import BLEPeripheral from './BLEPeripheral'
 
 // Message characteristic, used for sending messages to the user's app
 let MessageCharacteristicUUID = 'ab7518a6-81d3-451d-b772-1f580f707a83'
@@ -58,7 +57,7 @@ export default new class BLEDiscovery {
         characteristics.push(msgChr)
 
         // Create service
-        NativeModules.RNBluetoothLE.createService(this.serviceUUID, characteristics.map(chr => ({
+        BLEPeripheral.createService(this.serviceUUID, characteristics.map(chr => ({
             uuid: chr.uuid,
             canRead: chr.canRead,
             canWrite: chr.canWrite,
@@ -92,9 +91,9 @@ export default new class BLEDiscovery {
     getCharacteristicsForData() {
 
         // Add device ID to the data
-        let data = Object.assign({}, data, {
+        let data = this.data/*Object.assign({}, this.data, {
             _id: this.deviceID
-        })
+        })*/
 
         // Create string
         let text = JSON.stringify(data)
@@ -112,7 +111,7 @@ export default new class BLEDiscovery {
             // Add opcode to indicate if there's more packets
             let packet = packets[i]
             if (i < packets.length-1)
-                packet += '\1'
+                packet += String.fromCharCode(1)
 
             // Create characteristic
             let chr = new Characteristic()

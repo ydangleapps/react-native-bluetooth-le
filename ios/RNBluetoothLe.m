@@ -12,7 +12,7 @@
     
     /// Which events we send to JS
     -(NSArray<NSString*>*)supportedEvents {
-        return @[@"BLEPeripheral:StateChanged"];
+        return @[@"BLEPeripheral:ReadyStateChanged"];
     }
     
     /// Start the bluetooth system for use as a peripheral
@@ -30,10 +30,14 @@
             // Create manager
             self.peripheralManager = [[CBPeripheralManager alloc] initWithDelegate:self queue:dispatch_get_main_queue() options:opts];
             
+            // Send current state
+            [self peripheralManagerDidUpdateState:self.peripheralManager];
+            
         }
         
-        // Send current state
-        [self peripheralManagerDidUpdateState:self.peripheralManager];
+        // Create service array if needed
+        if (!self.services)
+            self.services = [NSMutableDictionary dictionary];
         
     }
     
@@ -52,11 +56,17 @@
             state = @"unauthorized";
         
         // Notify JS
-        [self sendEventWithName:@"BLEPeripheral:StateChanged" body:state];
+         [self sendEventWithName:@"BLEPeripheral:ReadyStateChanged" body:state];
         
     }
     
-    /// Called to create a new peripheral service. If UUID already exists, it will be removed first.
+    -(void)peripheralManager:(CBPeripheralManager *)peripheral willRestoreState:(NSDictionary<NSString *,id> *)dict {
+        
+        NSLog(@"Bluetooth LE: State restored");
+        
+    }
+    
+    /// Called to create a new peripheral service. If UUID already exists, it will be replaced.
     RCT_REMAP_METHOD(createService, createServiceWithUUID:(NSString*)uuidStr characteristics:(NSArray*)characteristicDescriptions) {
         
         // Prepare peripheral manager
@@ -64,6 +74,7 @@
         
         // Create service
         CBMutableService* svc = [[CBMutableService alloc] initWithType:[CBUUID UUIDWithString:uuidStr] primary:YES];
+        [self.services setObject:svc forKey:uuidStr];
         
         // Add each characteristic
         NSMutableArray* chrs = [NSMutableArray array];
@@ -74,7 +85,7 @@
             BOOL canRead = [[dict valueForKey:@"canRead"] boolValue];
             BOOL canWrite = [[dict valueForKey:@"canWrite"] boolValue];
             NSString* dataStr = [dict valueForKey:@"data"];
-            if (dataStr.length == 0)
+            if ([dataStr isKindOfClass:[NSNull class]] || dataStr.length == 0)
                 dataStr = nil;
             
             // Create properties
@@ -82,11 +93,16 @@
             if (canRead) props |= CBCharacteristicPropertyRead;
             if (canWrite) props |= CBCharacteristicPropertyWrite;
             
+            // Create permissions
+            CBAttributePermissions perms = 0;
+            if (canRead) perms |= CBAttributePermissionsReadable;
+            if (canWrite) props |= CBAttributePermissionsWriteable;
+            
             // Convert data to NSData if exists
             NSData* data = [dataStr dataUsingEncoding:NSUTF8StringEncoding];
             
             // Create characteristic
-            CBMutableCharacteristic* chr = [[CBMutableCharacteristic alloc] initWithType:[CBUUID UUIDWithString:uuid] properties:props value:data permissions:CBAttributePermissionsReadable | CBAttributePermissionsWriteable];
+            CBMutableCharacteristic* chr = [[CBMutableCharacteristic alloc] initWithType:[CBUUID UUIDWithString:uuid] properties:props value:data permissions:perms];
             
             // Save it
             [chrs addObject:chr];
