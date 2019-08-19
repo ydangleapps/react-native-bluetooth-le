@@ -1,6 +1,13 @@
 
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.reactlibrary">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rnbluetoothle">
+
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+
+    <!-- Bluetooth advertiser/discover service -->
+    <application>
+        <service android:name=".BLEService" android:label="Bluetooth advertiser" />
+    </application>
 
 </manifest>
   

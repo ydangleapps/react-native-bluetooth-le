@@ -1,5 +1,6 @@
 
 import { NativeEventEmitter, NativeModules } from 'react-native'
+import Synchronized from './Synchronized'
 
 /**
  * Manages creating services.
@@ -43,15 +44,24 @@ export default new class BLEPeripheral {
      * @param {string} uuid The UUID for your service.
      * @param {Characteristic[]} The list of characteristics.
      */
-    createService(uuid, characteristics) {
+    async createService(uuid, characteristics) {
 
         // Store service
         this.services[uuid] = characteristics
 
         // Send to native code if ready
         console.warn('BLE: Creating service ' + uuid + ' with ' + characteristics.length + ' characteristic(s).')
-        NativeModules.RNBluetoothLe.createService(uuid, characteristics)
+        await NativeModules.RNBluetoothLe.createService(uuid, characteristics)
 
+    }
+
+    /**
+     * Remove the specified service.
+     * 
+     * @param {string} uuid The service's UUID.
+     */
+    async removeService(uuid) {
+        return await NativeModules.RNBluetoothLe.removeService(uuid)
     }
 
 }

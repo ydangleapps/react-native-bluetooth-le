@@ -11,7 +11,7 @@ let MessageCharacteristicUUID = 'ab7518a6-81d3-451d-b772-1f580f707a83'
 // on the size of the user's advertisement data, there may be multiple data
 // characteristics needed to advertise it all.
 function dataCharacteristicUUID(index) {
-    return uuidv5('split:' + index, 'bb652ee7-940b-4ace-981f-9ce7889dae39')
+    return uuidv5('data#spl:' + index, 'bb652ee7-940b-4ace-981f-9ce7889dae39')
 }
 
 /**
@@ -38,7 +38,7 @@ export default new class BLEDiscovery {
 
     }
 
-    /** Call this after modifying the data property. This sends the data to the device's GATT server and cerates the BLE service. */
+    /** Call this after modifying the data property. This sends the data to the device's GATT server and creates the BLE service. */
     save() {
 
         // Make sure user has called .setup() first
