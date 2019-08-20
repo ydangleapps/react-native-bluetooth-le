@@ -12,7 +12,7 @@
     
     /// Which events we send to JS
     -(NSArray<NSString*>*)supportedEvents {
-        return @[@"BLEPeripheral:ReadyStateChanged"];
+        return @[@"BLEPeripheral:ReadyStateChanged", @"BLECentral:ScanEnd", @"BLECentral:ScanAdded", @"BLECentral:ScanRemoved"];
     }
     
     /// Start the bluetooth system for use as a peripheral

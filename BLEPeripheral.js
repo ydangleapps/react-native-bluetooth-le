@@ -1,6 +1,5 @@
 
 import { NativeEventEmitter, NativeModules } from 'react-native'
-import Synchronized from './Synchronized'
 
 /**
  * Manages creating services.

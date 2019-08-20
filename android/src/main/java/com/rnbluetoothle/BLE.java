@@ -1,14 +1,17 @@
 package com.rnbluetoothle;
 
-import android.annotation.TargetApi;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeAdvertiser;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -19,7 +22,6 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,6 +36,20 @@ public class BLE {
     /** Callback with value */
     interface Callback<T> {
         void run(T value, Exception ex);
+    }
+
+    /** Scan listener */
+    static abstract class ScanListener extends ScanCallback {
+
+        /** Called when scanning has started successfully */
+        abstract void onStart();
+
+        /** Called when scanning failed to start */
+        abstract void onStartFailed(Exception ex);
+
+        /** Called when the scan is stopped */
+        abstract void onScanStopped(Exception ex);
+
     }
 
     /** Singleton */
@@ -130,9 +146,7 @@ public class BLE {
                 this.gattServer.addService(service);
 
                 // Wait until service has been registered
-                Log.i("BLE", "Start wait for service");
                 promise.get();
-                Log.i("BLE", "End wait for service");
 
                 // Readvertise
                 this.readvertise();
@@ -228,6 +242,73 @@ public class BLE {
         // Get advertiser
         BluetoothLeAdvertiser advertiser = adapter.getBluetoothLeAdvertiser();
         advertiser.startAdvertising(settings, dataBuilder.build(), scanData, advertiseListener);
+
+    }
+
+    // Current scan
+    private ScanListener currentScan = null;
+
+    /**
+     * Start scanning for remote devices nearby.
+     *
+     * @param serviceFilter An optional list of services. If specified, will only return devices with these services.
+     * @param listener Response listener
+     */
+    public void scan(List<UUID> serviceFilter, ScanListener listener) {
+
+        // Do on queue
+        executor.submit(() -> {
+
+            try {
+
+                // Setup bluetooth
+                setup();
+
+                // Get discoverer
+                BluetoothLeScanner scanner = adapter.getBluetoothLeScanner();
+
+                // Stop existing scan if any
+                if (currentScan != null) {
+                    currentScan.onScanStopped(new Exception("Another scan was started."));
+                    scanner.stopScan(currentScan);
+                }
+
+                // Create scan settings
+                ScanSettings settings = new ScanSettings.Builder()
+                        .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
+                        .build();
+
+                // Start scanning, check filter
+                if (serviceFilter.size() == 0) {
+
+                    // Scan without a filter
+                    currentScan = listener;
+                    scanner.startScan(null, settings, listener);
+
+                } else {
+
+                    // Create service filter
+                    ArrayList<ScanFilter> filters = new ArrayList<>();
+                    for (UUID uuid : serviceFilter)
+                        filters.add(new ScanFilter.Builder().setServiceUuid(new ParcelUuid(uuid)).build());
+
+                    // Scan with filter
+                    currentScan = listener;
+                    scanner.startScan(filters, settings, listener);
+
+                }
+
+                // Done
+                listener.onStart();
+
+            } catch (Exception ex) {
+
+                // Failed
+                listener.onStartFailed(ex);
+
+            }
+
+        });
 
     }
 
