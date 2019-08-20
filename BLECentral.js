@@ -1,12 +1,14 @@
 
 import { NativeEventEmitter, NativeModules } from 'react-native'
 import EventEmitter from './EventEmitter'
+import Device from './Device'
+import Encoder from './Encoder'
 
 /**
  * Manages discovering and connecting to services.
  * 
  * @event scan.start Scanning has started
- * @event scan.end Scanning has ended
+ * @event scan.end Scanning has ended. If ended with an error, the error is returned as the event data
  * @event scan.added Discovered a new device
  * @event scan.updated A device which has already been discovered was updated
  * @event scan.removed A device is no longer in range
@@ -41,6 +43,9 @@ export default new class BLECentral extends EventEmitter {
      */
     async startScan(serviceFilter = []) {
 
+        // Convert all service names to UUIDs
+        serviceFilter = serviceFilter.map(name => Encoder.toUUID(name))
+
         // Send request to native code
         await NativeModules.RNBluetoothLe.scan(serviceFilter)
         this.scanning = true
@@ -58,7 +63,7 @@ export default new class BLECentral extends EventEmitter {
 
         // Emit event
         this.scanning = false
-        this.emit('scan.end')
+        this.emit('scan.end', errorText ? new Error(errorText) : null)
         this.emit('updated')
 
     }

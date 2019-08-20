@@ -1,5 +1,6 @@
 
 import { NativeEventEmitter, NativeModules } from 'react-native'
+import Encoder from './Encoder'
 
 /**
  * Manages creating services.
@@ -40,10 +41,13 @@ export default new class BLEPeripheral {
     /** 
      * Create a service.
      * 
-     * @param {string} uuid The UUID for your service.
+     * @param {string} name The name or UUID for your service.
      * @param {Characteristic[]} The list of characteristics.
      */
-    async createService(uuid, characteristics) {
+    async createService(name, characteristics) {
+
+        // Convert name to UUID
+        let uuid = Encoder.toUUID(name)
 
         // Store service
         this.services[uuid] = characteristics
@@ -57,10 +61,10 @@ export default new class BLEPeripheral {
     /**
      * Remove the specified service.
      * 
-     * @param {string} uuid The service's UUID.
+     * @param {string} name The service's name or UUID.
      */
-    async removeService(uuid) {
-        return await NativeModules.RNBluetoothLe.removeService(uuid)
+    async removeService(name) {
+        return await NativeModules.RNBluetoothLe.removeService(Encoder.toUUID(uuid))
     }
 
 }

@@ -8,8 +8,19 @@ import BLECentral from './BLECentral'
 
 /**
  * This class allows for advertising data to other nearby devices, and for discovering data advertised by other devices.
+ * 
+ * @event device.found Called when a device has been found. Includes the device as the event data.
+ * @event updated Called when the array of devices has been modified.
  */
 export default new class BLEDiscovery extends EventEmitter {
+
+    constructor() {
+        super()
+
+        /** List of discovered devices */
+        this.devices = []
+
+    }
 
     /** 
      * Setup. Call this once in your app. Options includes:
@@ -26,20 +37,55 @@ export default new class BLEDiscovery extends EventEmitter {
 
         // Generate service UUID
         if (!opts.groupID) throw new Error(`Please specify a 'groupID'.`)
-        let namespace = 'bb652ee7-940b-4ace-981f-9ce7889dae39'
-        this.serviceUUID = uuidv5(opts.groupID, namespace)
+        this.serviceName = 'discovery:' + opts.groupID
 
         // Get device ID
         this.deviceID = opts.deviceID || uuidv4()
 
+    }
+
+    /** Call this to enable discovery and advertisement. */
+    async enable() {
+
+        // Stop if already enabled
+        if (this.enabled) return
+        this.enabled = true
+
+        // Start advertising this device
+        await this.save()
+
         // Start discovering devices
         BLECentral.addEventListener('scan.added', this.onDeviceFound.bind(this))
-        BLECentral.startScan([this.serviceUUID])
+        BLECentral.addEventListener('scan.updated', this.onDeviceFound.bind(this))
+        BLECentral.addEventListener('scan.end', this.onScanEnd.bind(this))
+        await BLECentral.startScan()//[this.serviceUUID])
+
+    }
+
+    /** Call this to disable discovery and advertisement. */
+    disable() {
+
+        // Stop if already disabled
+        if (!this.enabled) return
+        this.enabled = false
+
+        // TODO: Stop and remove data and listeners
+        // Start discovering devices
+        //BLECentral.addEventListener('scan.added', this.onDeviceFound.bind(this))
+        //BLECentral.addEventListener('scan.end', this.onScanEnd.bind(this))
+        //BLECentral.stopScan()
+
+        // Start advertising this device
+        //this.save()
 
     }
 
     /** Call this after modifying the data property. This sends the data to the device's GATT server and creates the BLE service. */
-    save() {
+    async save() {
+
+        // Stop if not enabled
+        if (!this.enabled)
+            return
 
         // Make sure user has called .setup() first
         if (!this.deviceID)
@@ -56,7 +102,7 @@ export default new class BLEDiscovery extends EventEmitter {
         characteristics.push(msgChr)
 
         // Create service
-        BLEPeripheral.createService(this.serviceUUID, characteristics.map(chr => ({
+        await BLEPeripheral.createService(this.serviceName, characteristics.map(chr => ({
             uuid: chr.uuid,
             canRead: chr.canRead,
             canWrite: chr.canWrite,
@@ -113,7 +159,7 @@ export default new class BLEDiscovery extends EventEmitter {
                 packet += String.fromCharCode(1)
 
             // Create characteristic
-            let chr = Characteristic.named('data#spl:').withValue(packet)
+            let chr = Characteristic.named('data#spl:' + i).withValue(packet)
             characteristics.push(chr)
 
         }
@@ -140,9 +186,58 @@ export default new class BLEDiscovery extends EventEmitter {
      * @private
      * @param {Device} device The discovered device.
      */
-    onDeviceFound(device) {
+    async onDeviceFound(device) {
 
-        console.warn('DISCOVERED ' + device.name + ' ' + device.address)
+        // Check if device has been read already
+        if (device.dataTimestamp > Date.now() - 1000 * 60) return
+        device.dataTimestamp = Date.now()
+
+        // Read data from device
+        let txt = ''
+        let index = 0
+        while (true) {
+
+            // Read data one payload at a time
+            console.warn(`Reading segment ${index} from ${device.address} - ${device.name}`)
+            let payload = await device.read(this.serviceName, 'data#spl:' + index)
+
+            // Check if more is coming
+            if (payload.substring(payload.length-1) == String.fromCharCode(1)) {
+
+                // More is coming
+                txt += payload.substring(0, payload.length-1)
+                index += 1
+
+            } else {
+
+                // No more
+                break
+
+            }
+
+        }
+
+        // Remove existing device
+        this.devices = this.devices.filter(d => d.address != device.address)
+
+        // Add device
+        device.data = JSON.parse(txt)
+        this.devices.push(device)
+        console.warn('Device added!')
+        this.emit('device.found', device)
+        this.emit('updated')
+
+    }
+
+    /**
+     * Called by BLECentral when the scan comes to an end.
+     */
+    onScanEnd(error) {
+
+        // Log it
+        console.warn('Scan ended! ' + (error ? error.message : ''))
+
+        // TODO: Start scan again
 
     }
 

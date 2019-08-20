@@ -1,6 +1,7 @@
 
 package com.rnbluetoothle;
 
+import android.Manifest;
 import android.annotation.TargetApi;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -16,6 +17,7 @@ import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.ParcelUuid;
 import android.util.Log;
@@ -126,6 +128,17 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
             return;
         }
 
+        // Check if got permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (getCurrentActivity().checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+                // Denied!
+                promise.reject("permission_denied", "Access to Fine Location has not been granted. This is needed in order to search for nearby Bluetooth devices.");
+                return;
+
+            }
+        }
+
         // Create UUID array
         ArrayList<UUID> services = new ArrayList<UUID>();
         for (int i = 0 ; i < serviceFilter.size() ; i++)
@@ -138,6 +151,7 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
             void onStart() {
 
                 // Successfully started
+                Log.i("BLE", "Scan started");
                 promise.resolve(true);
 
             }
@@ -147,6 +161,7 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
 
                 // Failed to start
                 promise.reject("failed", ex.getLocalizedMessage());
+                Log.i("BLE", "Scan start failed: " + ex.getLocalizedMessage());
 
             }
 
@@ -154,6 +169,7 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
             void onScanStopped(Exception ex) {
 
                 // Scan interrupted by our code
+                Log.i("BLE", "Scan end: " + (ex == null ? "" : ex.getLocalizedMessage()));
                 getReactApplicationContext()
                         .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                         .emit("BLECentral:ScanEnd", ex == null ? "" : ex.getLocalizedMessage());
@@ -171,11 +187,12 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
                 else if (errorCode == ScanCallback.SCAN_FAILED_ALREADY_STARTED)
                     error = "Another scan has already been started.";
                 else if (errorCode == ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED)
-                    error = "Unable to register the application.";
+                    error = "Unable to register the application. Maybe permission has not been granted?";
                 else if (errorCode == ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED)
                     error = "This feature is not supported on this device.";
 
                 // Scan interrupted by the system
+                Log.i("BLE", "Scan end: " + error);
                 getReactApplicationContext()
                         .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                         .emit("BLECentral:ScanEnd", "Scan interrupted. " + error);
@@ -197,6 +214,7 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
                 if (callbackType == ScanSettings.CALLBACK_TYPE_MATCH_LOST) {
 
                     // Device lost
+                    Log.i("BLE", "Scan result: Lost " + result.getDevice().getName());
                     getReactApplicationContext()
                             .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                             .emit("BLECentral:ScanRemoved", device);
@@ -204,6 +222,7 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
                 } else {
 
                     // Device found or updated
+                    Log.i("BLE", "Scan result: Found " + result.getDevice().getName());
                     getReactApplicationContext()
                             .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                             .emit("BLECentral:ScanAdded", device);
