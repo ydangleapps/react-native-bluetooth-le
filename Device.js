@@ -34,7 +34,7 @@ export default class Device extends EventEmitter {
     async read(service, characteristic) {
 
         // Read it
-        return await NativeModules.RNBluetoothLe.readCharacteristic(Encoder.toUUID(service), Encoder.toUUID(characteristic))
+        return await NativeModules.RNBluetoothLe.readCharacteristic(this.address, Encoder.toUUID(service), Encoder.toUUID(characteristic))
 
     }
 

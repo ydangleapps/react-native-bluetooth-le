@@ -10,7 +10,7 @@ const Namespace = 'bb652ee7-940b-4ace-981f-9ce7889dae39'
 export default class Encoder {
 
     /** Get a UUID from a named ID. If the string is already a UUID, it is passed back directly. */
-    toUUID(txt) {
+    static toUUID(txt) {
 
         // Convert to string if needed
         if (typeof txt != 'string')

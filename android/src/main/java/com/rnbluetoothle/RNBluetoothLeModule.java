@@ -33,6 +33,7 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.UUID;
@@ -230,6 +231,46 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
                 }
 
             }
+        });
+
+    }
+
+    @ReactMethod
+    public void readCharacteristic(String deviceAddress, String serviceUUID, String chrUUID, Promise promise) {
+
+        // Fail if Android version is too low
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            promise.reject("unsupported", "This feature is not supported on this version of Android.");
+            return;
+        }
+
+        // Check if got permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (getCurrentActivity().checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+                // Denied!
+                promise.reject("permission_denied", "Access to Fine Location has not been granted. This is needed in order to search for nearby Bluetooth devices.");
+                return;
+
+            }
+        }
+
+        // Read it
+        BLE.get(getReactApplicationContext()).readCharacteristic(deviceAddress, UUID.fromString(serviceUUID), UUID.fromString(chrUUID), (byte[] data, Exception err) -> {
+
+            if (err != null) {
+                promise.reject("failed", err.getLocalizedMessage());
+                Log.i("BLE", "Failed to read characteristic: " + err);
+            } else {
+
+                // Success, convert to text
+                // TODO: More data formats
+                String txt = new String(data, Charset.forName("UTF8"));
+
+                promise.resolve(txt);
+                Log.i("BLE", "Successfully read characteristic");
+            }
+
         });
 
     }

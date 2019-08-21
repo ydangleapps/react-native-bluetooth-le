@@ -3,6 +3,8 @@ package com.rnbluetoothle;
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
@@ -86,6 +88,9 @@ public class BLE {
 
     /** Advertise listener */
     AdvertiseListener advertiseListener = new AdvertiseListener(this);
+
+    /** List of connected devices */
+    ArrayList<BLEConnection> connections = new ArrayList<>();
 
     /**
      * Sets up the Bluetooth environment
@@ -237,13 +242,15 @@ public class BLE {
             dataBuilder = dataBuilder.addServiceUuid(new ParcelUuid(svc.getUuid()));
 
         // Create advertise scan data
-        AdvertiseData scanData = new AdvertiseData.Builder()
-                .setIncludeDeviceName(true)
-                .build();
+        AdvertiseData.Builder scanData = new AdvertiseData.Builder()
+                .setIncludeDeviceName(true);
+
+        for (BluetoothGattService svc : services)
+            scanData = scanData.addServiceUuid(new ParcelUuid(svc.getUuid()));
 
         // Get advertiser
         BluetoothLeAdvertiser advertiser = adapter.getBluetoothLeAdvertiser();
-        advertiser.startAdvertising(settings, dataBuilder.build(), scanData, advertiseListener);
+        advertiser.startAdvertising(settings, dataBuilder.build(), scanData.build(), advertiseListener);
 
     }
 
@@ -307,6 +314,85 @@ public class BLE {
 
                 // Failed
                 listener.onStartFailed(ex);
+
+            }
+
+        });
+
+    }
+
+    public void readCharacteristic(String deviceAddress, UUID serviceUUID, UUID characteristic, Callback<byte[]> callback) {
+
+        // Do on queue
+        executor.submit(() -> {
+
+            try {
+
+                // Setup bluetooth
+                setup();
+
+                // Find existing connection
+                BLEConnection connection = null;
+                for (BLEConnection conn : connections)
+                    if (conn.remoteDevice.getAddress().equalsIgnoreCase(deviceAddress))
+                        connection = conn;
+
+                // Connect if necessary
+                if (connection == null) {
+
+                    // Get device
+                    BluetoothDevice device = adapter.getRemoteDevice(deviceAddress);
+
+                    // Create connection
+                    connection = new BLEConnection();
+                    connection.remoteDevice = device;
+
+                    // Connect
+                    connection.pendingConnection = new SettableFuture<Void>();
+                    connection.gatt = device.connectGatt(ctx, false, connection);
+                    connection.pendingConnection.get();
+
+                } else {
+
+                    // Existing connection exists, if the connection has dropped attempt to connect to it again
+                    connection.pendingConnection = new SettableFuture<Void>();
+                    if (!connection.gatt.connect()) throw new Exception("Unable to request a connection to this device.");
+                    connection.pendingConnection.get();
+
+                }
+
+                // Discover services if necessary
+                if (connection.gatt.getServices().isEmpty()) {
+
+                    // Discover services
+                    connection.pendingServices = new SettableFuture<Void>();
+                    connection.gatt.discoverServices();
+                    connection.pendingServices.get();
+
+                }
+
+                // Find the service
+                BluetoothGattService service = connection.gatt.getService(serviceUUID);
+                if (service == null)
+                    throw new Exception("The specified service was not found.");
+
+                // Now find the characteristic
+                BluetoothGattCharacteristic chr = service.getCharacteristic(characteristic);
+                if (chr == null)
+                    throw new Exception("The specified characteristic was not found.");
+
+                // Read it
+                connection.pendingCharacteristicRead = new SettableFuture<byte[]>();
+                connection.gatt.readCharacteristic(chr);
+                byte[] data = connection.pendingCharacteristicRead.get();
+
+                // Done
+                callback.run(data, null);
+
+            } catch (Exception ex) {
+
+                // Failed
+                callback.run(null, ex);
 
             }
 

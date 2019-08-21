@@ -58,7 +58,7 @@ export default new class BLEDiscovery extends EventEmitter {
         BLECentral.addEventListener('scan.added', this.onDeviceFound.bind(this))
         BLECentral.addEventListener('scan.updated', this.onDeviceFound.bind(this))
         BLECentral.addEventListener('scan.end', this.onScanEnd.bind(this))
-        await BLECentral.startScan()//[this.serviceUUID])
+        await BLECentral.startScan([this.serviceName])
 
     }
 
@@ -193,13 +193,15 @@ export default new class BLEDiscovery extends EventEmitter {
         device.dataTimestamp = Date.now()
 
         // Read data from device
+        console.warn('Reading device info...')
         let txt = ''
         let index = 0
         while (true) {
 
             // Read data one payload at a time
-            console.warn(`Reading segment ${index} from ${device.address} - ${device.name}`)
+            console.warn(`Reading device info from ${device.name} part ${index}`)
             let payload = await device.read(this.serviceName, 'data#spl:' + index)
+            console.warn('Got it: ' + payload)
 
             // Check if more is coming
             if (payload.substring(payload.length-1) == String.fromCharCode(1)) {
