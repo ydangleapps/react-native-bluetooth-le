@@ -223,7 +223,7 @@ export default new class BLEDiscovery extends EventEmitter {
             try {
                 json = JSON.parse(txt)
             } catch (err) {
-                throw new Error('Unable to parse JSON from ' + txt)
+                throw new Error('Unable to parse JSON from "' + txt + '"')
             }
 
             // Remove existing device

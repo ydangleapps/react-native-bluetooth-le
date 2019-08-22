@@ -197,7 +197,11 @@ public class BLE {
             if (services.size() > 0) {
 
                 // Readvertise
-                readvertise();
+                try {
+                    readvertise();
+                } catch (Exception ex) {
+                    Log.w("BLE", "Unable to modify advertised services. " + ex.getLocalizedMessage());
+                }
 
             } else {
 
@@ -223,7 +227,7 @@ public class BLE {
     }
 
     /** Update advertised data */
-    private void readvertise() {
+    private void readvertise() throws Exception {
 
         // Sanity check
         if (adapter == null)
@@ -237,21 +241,21 @@ public class BLE {
                 .build();
 
         // Create advertise data
-        AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder().setIncludeTxPowerLevel(true);
+        AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder();
         for (BluetoothGattService svc : services)
             dataBuilder = dataBuilder.addServiceUuid(new ParcelUuid(svc.getUuid()));
 
         // Create advertise scan data
-        AdvertiseData.Builder scanData = new AdvertiseData.Builder()
-                .setIncludeTxPowerLevel(true)
-                .setIncludeDeviceName(true);
+        AdvertiseData.Builder scanData = new AdvertiseData.Builder();
 
         for (BluetoothGattService svc : services)
             scanData = scanData.addServiceUuid(new ParcelUuid(svc.getUuid()));
 
         // Get advertiser
+        advertiseListener.startPromise = new SettableFuture<>();
         BluetoothLeAdvertiser advertiser = adapter.getBluetoothLeAdvertiser();
         advertiser.startAdvertising(settings, dataBuilder.build(), scanData.build(), advertiseListener);
+        advertiseListener.startPromise.get();
         Log.i("BLE", "Restarted advertising");
 
     }
