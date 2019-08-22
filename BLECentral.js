@@ -85,7 +85,6 @@ export default new class BLECentral extends EventEmitter {
             device.emit('updated', device)
             this.emit('scan.updated', device)
             this.emit('updated')
-            console.warn('UPDATED ' + device.address)
 
         } else {
 
@@ -97,7 +96,6 @@ export default new class BLECentral extends EventEmitter {
             this.devices.push(device)
             this.emit('scan.added', device)
             this.emit('updated')
-            console.warn('ADDED ' + device.address)
 
         }
 

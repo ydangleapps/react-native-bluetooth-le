@@ -216,7 +216,6 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
                         for (UUID svc : services) {
                             for (ParcelUuid svc2 : discoveredServiceUUIDs) {
                                 if (svc2.getUuid().equals(svc)) {
-                                    Log.i("BLE", "Found service UUID");
                                     serviceFound = true;
                                     break;
                                 }
@@ -266,7 +265,6 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
                 if (callbackType == ScanSettings.CALLBACK_TYPE_MATCH_LOST) {
 
                     // Device lost
-                    Log.i("BLE", "Scan result: Lost " + result.getDevice().getName());
                     getReactApplicationContext()
                             .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                             .emit("BLECentral:ScanRemoved", device);
@@ -274,7 +272,6 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
                 } else {
 
                     // Device found or updated
-                    Log.i("BLE", "Scan result: Found " + result.getDevice().getName());
                     getReactApplicationContext()
                             .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                             .emit("BLECentral:ScanAdded", device);

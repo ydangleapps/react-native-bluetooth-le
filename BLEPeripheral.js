@@ -31,7 +31,6 @@ export default new class BLEPeripheral {
         // If ready, re-register services
         if (this.ready) {
             for (let uuid in this.services) {
-                console.warn('BLE: Recreating service ' + uuid + ' with ' + this.services[uuid].length + ' characteristic(s).')
                 NativeModules.RNBluetoothLe.createService(uuid, this.services[uuid])
             }
         }
@@ -53,7 +52,6 @@ export default new class BLEPeripheral {
         this.services[uuid] = characteristics
 
         // Send to native code if ready
-        console.warn('BLE: Creating service ' + uuid + ' with ' + characteristics.length + ' characteristic(s).')
         await NativeModules.RNBluetoothLe.createService(uuid, characteristics)
 
     }

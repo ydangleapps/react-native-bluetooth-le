@@ -188,46 +188,60 @@ export default new class BLEDiscovery extends EventEmitter {
      */
     async onDeviceFound(device) {
 
-        // Check if device has been read already
-        if (device.dataTimestamp > Date.now() - 1000 * 60) return
-        device.dataTimestamp = Date.now()
+        try {
 
-        // Read data from device
-        console.warn('Reading device info...')
-        let txt = ''
-        let index = 0
-        while (true) {
+            // Check if device has been read already
+            if (device.dataTimestamp > Date.now() - 1000 * 60) return console.log('Skipping device, already attempted a read: ' + (device.name || device.address))
+            device.dataTimestamp = Date.now()
 
-            // Read data one payload at a time
-            console.warn(`Reading device info from ${device.name} part ${index}`)
-            let payload = await device.read(this.serviceName, 'data#spl:' + index)
-            console.warn('Got it: ' + payload)
+            // Read data from device
+            let txt = ''
+            let index = 0
+            while (true) {
 
-            // Check if more is coming
-            if (payload.substring(payload.length-1) == String.fromCharCode(1)) {
+                // Read data one payload at a time
+                let payload = await device.read(this.serviceName, 'data#spl:' + index)
 
-                // More is coming
-                txt += payload.substring(0, payload.length-1)
-                index += 1
+                // Check if more is coming
+                if (payload.substring(payload.length-1) == String.fromCharCode(1)) {
 
-            } else {
+                    // More is coming
+                    txt += payload.substring(0, payload.length-1)
+                    index += 1
 
-                // No more
-                break
+                } else {
+
+                    // No more
+                    break
+
+                }
 
             }
 
+            // Decode JSON
+            let json = null
+            try {
+                json = JSON.parse(txt)
+            } catch (err) {
+                throw new Error('Unable to parse JSON from ' + txt)
+            }
+
+            // Remove existing device
+            this.devices = this.devices.filter(d => d.address != device.address)
+
+            // Add device
+            device.data = json
+            console.warn('Found nearby device ' + (device.data.name || device.name || device.address));
+            this.devices.push(device)
+            this.emit('device.found', device)
+            this.emit('updated')
+
+        } catch (err) {
+
+            // Failed
+            console.warn('Failed to read device data for ' + (device.name || device.address) + ': ' + err.message);
+
         }
-
-        // Remove existing device
-        this.devices = this.devices.filter(d => d.address != device.address)
-
-        // Add device
-        device.data = JSON.parse(txt)
-        this.devices.push(device)
-        console.warn('Device added!')
-        this.emit('device.found', device)
-        this.emit('updated')
 
     }
 

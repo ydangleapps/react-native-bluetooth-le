@@ -41,7 +41,7 @@ public class BLEConnection extends BluetoothGattCallback {
             // Disconnected
             isConnected = false;
             if (pendingConnection != null) {
-                pendingConnection.reject(new Exception("Connection failed."));
+                pendingConnection.reject(new Exception(error));
                 pendingConnection = null;
             }
 
