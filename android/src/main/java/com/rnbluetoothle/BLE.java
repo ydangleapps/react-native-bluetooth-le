@@ -243,6 +243,7 @@ public class BLE {
 
         // Create advertise scan data
         AdvertiseData.Builder scanData = new AdvertiseData.Builder()
+                .setIncludeTxPowerLevel(true)
                 .setIncludeDeviceName(true);
 
         for (BluetoothGattService svc : services)
@@ -251,6 +252,7 @@ public class BLE {
         // Get advertiser
         BluetoothLeAdvertiser advertiser = adapter.getBluetoothLeAdvertiser();
         advertiser.startAdvertising(settings, dataBuilder.build(), scanData.build(), advertiseListener);
+        Log.i("BLE", "Restarted advertising");
 
     }
 
@@ -283,16 +285,20 @@ public class BLE {
                 }
 
                 // Create scan settings
-                ScanSettings settings = new ScanSettings.Builder()
-                        .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
-                        .build();
+                ScanSettings.Builder settings = new ScanSettings.Builder()
+                        .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER);
+
+                // Only match once per device if possible
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    settings = settings.setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH | ScanSettings.CALLBACK_TYPE_MATCH_LOST);
+                }
 
                 // Start scanning, check filter
-                if (serviceFilter.size() == 0) {
+                if (serviceFilter == null || serviceFilter.size() == 0) {
 
                     // Scan without a filter
                     currentScan = listener;
-                    scanner.startScan(null, settings, listener);
+                    scanner.startScan(listener);
 
                 } else {
 
@@ -303,7 +309,7 @@ public class BLE {
 
                     // Scan with filter
                     currentScan = listener;
-                    scanner.startScan(filters, settings, listener);
+                    scanner.startScan(filters, settings.build(), listener);
 
                 }
 

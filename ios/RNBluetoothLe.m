@@ -197,9 +197,27 @@
             // Register service
             svc.characteristics = chrs;
             [self.peripheralManager addService:svc];
+            
+            // Start advertising
+            [self.peripheralManager startAdvertising:@{
+                CBAdvertisementDataServiceUUIDsKey: @[
+                    [CBUUID UUIDWithString:uuidStr]
+                ]
+            }];
+            [self.events waitFor:@"advertise"];
             return nil;
             
         }];
+        
+    }
+    
+    -(void) peripheralManagerDidStartAdvertising:(CBPeripheralManager *)peripheral error:(NSError *)error {
+        
+        // Advertisement started
+        if (error)
+            [self.events reject:@"advertise" withError:error];
+        else
+            [self.events resolve:@"advertise" withValue:@true];
         
     }
     
