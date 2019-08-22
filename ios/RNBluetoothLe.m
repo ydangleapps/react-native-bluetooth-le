@@ -198,6 +198,10 @@
             svc.characteristics = chrs;
             [self.peripheralManager addService:svc];
             
+            // Stop advertising if already advertising
+            if (self.peripheralManager.isAdvertising)
+                [self.peripheralManager stopAdvertising];
+            
             // Start advertising
             [self.peripheralManager startAdvertising:@{
                 CBAdvertisementDataServiceUUIDsKey: @[

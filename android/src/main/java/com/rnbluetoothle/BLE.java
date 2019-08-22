@@ -252,8 +252,13 @@ public class BLE {
             scanData = scanData.addServiceUuid(new ParcelUuid(svc.getUuid()));
 
         // Get advertiser
-        advertiseListener.startPromise = new SettableFuture<>();
         BluetoothLeAdvertiser advertiser = adapter.getBluetoothLeAdvertiser();
+
+        // Stop advertising if needed
+        advertiser.stopAdvertising(advertiseListener);
+
+        // Start advertising
+        advertiseListener.startPromise = new SettableFuture<>();
         advertiser.startAdvertising(settings, dataBuilder.build(), scanData.build(), advertiseListener);
         advertiseListener.startPromise.get();
         Log.i("BLE", "Restarted advertising");

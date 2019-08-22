@@ -212,6 +212,7 @@ export default new class BLEDiscovery extends EventEmitter {
                 } else {
 
                     // No more
+                    txt += payload
                     break
 
                 }
