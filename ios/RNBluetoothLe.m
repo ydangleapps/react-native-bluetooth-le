@@ -26,6 +26,7 @@
         // Setup list of waiting operations
         self.events = [[EventSemaphore alloc] init];
         self.queryingPeripherals = [NSMutableArray array];
+        self.idToPeripheral = [NSMutableDictionary dictionary];
         
         // Done
         return self;
@@ -314,15 +315,39 @@
     
     -(void) centralManager:(CBCentralManager *)central didDiscoverPeripheral:(CBPeripheral *)peripheral advertisementData:(NSDictionary<NSString *,id> *)advertisementData RSSI:(NSNumber *)RSSI {
         
+        // Read manufacturer data, check for our special session identifier.
+        // This is to work around a strange bug where every time an iOS device connects to an Android 6+ device, the
+        // iOS device discovers a "new" device, which is actually the same device. So we use this ID to determine if
+        // the device is the same as one we just discovered previously
+        NSString* identifier = peripheral.identifier.UUIDString;
+        NSData* data = [advertisementData valueForKey:CBAdvertisementDataManufacturerDataKey];
+        if (data.length >= 6) {
+            
+            // Compare bytes
+            uint8_t* bytes = (uint8_t*) data.bytes;
+            if (bytes[0] == 0x1C && bytes[1] == 0xEF) {
+                
+                // Get ID
+                uint32_t idNum = 0;
+                idNum |= bytes[2] << 0;
+                idNum |= bytes[3] << 8;
+                idNum |= bytes[4] << 16;
+                idNum |= bytes[5] << 24;
+                NSLog(@"[BLE] Discovered peripheral has a session ID: %i", idNum);
+                identifier = [NSString stringWithFormat:@"SessionID:%i", idNum];
+                
+            }
+            
+        }
+        
         // Create device info
         NSMutableDictionary* device = [NSMutableDictionary dictionary];
-        [device setValue:[peripheral.identifier UUIDString] forKey:@"address"];
+        [device setValue:identifier forKey:@"address"];
         [device setValue:peripheral.name forKey:@"name"];
         [device setValue:RSSI forKey:@"rssi"];
         
         // Store peripheral
-        if (![self.queryingPeripherals containsObject:peripheral])
-            [self.queryingPeripherals addObject:peripheral];
+        [self.idToPeripheral setObject:peripheral forKey:identifier];
         
         // Notify JS
         [self sendEventWithName:@"BLECentral:ScanAdded" body:device];
@@ -343,8 +368,7 @@
             [self setupCentral];
             
             // Find device
-            NSArray<CBPeripheral*>* peripherals = [self.centralManager retrievePeripheralsWithIdentifiers:@[[[NSUUID alloc] initWithUUIDString:deviceID]]];
-            CBPeripheral* peripheral = peripherals.count > 0 ? [peripherals objectAtIndex:0] : nil;
+            CBPeripheral* peripheral = [self.idToPeripheral objectForKey:deviceID];
             peripheral.delegate = self;
             if (!peripheral)
                 @throw [NSError errorWithText:@"The specified device was not found."];
@@ -353,8 +377,16 @@
 //            if (![self.queryingPeripherals containsObject:peripheral])
 //                [self.queryingPeripherals addObject:peripheral];
             
+            // Check if peripheral state is currently connecting, if so wait for it to complete
+            if (peripheral.state == CBPeripheralStateConnecting)
+                [self.events waitFor:@"connect"];
+            
+            // Check i fperipheral is bbusy disconnecting
+            if (peripheral.state == CBPeripheralStateDisconnecting)
+                [self.events waitFor:@"disconnect"];
+            
             // Connect to peripheral if needed
-            if (peripheral.state != CBPeripheralStateConnected) {
+            if (peripheral.state == CBPeripheralStateDisconnected) {
                 
                 // Do connection
                 NSLog(@"[BLE] Central: Connecting to peripheral %@", peripheral.identifier);
@@ -363,6 +395,10 @@
                 NSLog(@"[BLE] Central: Connect complete");
                 
             }
+            
+            // Sanity check: We should be connected now
+            if (peripheral.state != CBPeripheralStateConnected)
+                @throw [NSError errorWithText:@"Unable to connect to peripheral, we don't know it's state."];
             
             // Get service
             CBService* service = nil;
@@ -458,6 +494,10 @@
     
     -(void) centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
         [self.events reject:@"connect" withError:error];
+    }
+    
+    -(void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
+        [self.events resolve:@"disconnect" withValue:@true];
     }
     
     -(void) peripheral:(CBPeripheral*)peripheral didDiscoverServices:(NSError*)error {

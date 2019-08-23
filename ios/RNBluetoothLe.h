@@ -12,16 +12,17 @@
 @interface RNBluetoothLe : RCTEventEmitter <RCTBridgeModule, CBPeripheralManagerDelegate, CBCentralManagerDelegate, CBPeripheralDelegate>
     
     // Operation queue
-    @property (retain) dispatch_queue_t queue;
-    @property (retain) EventSemaphore* events;
+    @property (strong) dispatch_queue_t queue;
+    @property (strong) EventSemaphore* events;
     
     // Peripheral vars
-    @property (retain) CBPeripheralManager* peripheralManager;
-    @property (retain) NSMutableDictionary<NSString*, CBService*>* services;
+    @property (strong) CBPeripheralManager* peripheralManager;
+    @property (strong) NSMutableDictionary<NSString*, CBService*>* services;
     
     // Central vars
-    @property (retain) CBCentralManager* centralManager;
-    @property (retain) NSMutableArray<CBPeripheral*>* queryingPeripherals;
+    @property (strong) CBCentralManager* centralManager;
+    @property (strong) NSMutableArray<CBPeripheral*>* queryingPeripherals;
+    @property (strong) NSMutableDictionary<NSString*, CBPeripheral*>* idToPeripheral;
 
 @end
   

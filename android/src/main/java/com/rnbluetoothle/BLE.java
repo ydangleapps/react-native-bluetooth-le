@@ -93,6 +93,18 @@ public class BLE {
     ArrayList<BLEConnection> connections = new ArrayList<>();
 
     /**
+     * Device instance ID. This is used to get around random bluetooth address changing after a connect is made from iOS.
+     * I really don't understand why this is happening.
+     */
+    private static int ManufacturerID = 0xEF1C;
+    private static byte[] ManufacturerData = new byte[] {
+            (byte) (Math.random() * Byte.MAX_VALUE),
+            (byte) (Math.random() * Byte.MAX_VALUE),
+            (byte) (Math.random() * Byte.MAX_VALUE),
+            (byte) (Math.random() * Byte.MAX_VALUE)
+    };
+
+    /**
      * Sets up the Bluetooth environment
      */
     private void setup() throws Exception {
@@ -241,7 +253,7 @@ public class BLE {
                 .build();
 
         // Create advertise data
-        AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder();
+        AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder().addManufacturerData(ManufacturerID, ManufacturerData);
         for (BluetoothGattService svc : services)
             dataBuilder = dataBuilder.addServiceUuid(new ParcelUuid(svc.getUuid()));
 
