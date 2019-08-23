@@ -5,6 +5,7 @@ import Characteristic from './Characteristic'
 import BLEPeripheral from './BLEPeripheral'
 import EventEmitter from './EventEmitter'
 import BLECentral from './BLECentral'
+import { AppState } from 'react-native'
 
 /**
  * This class allows for advertising data to other nearby devices, and for discovering data advertised by other devices.
@@ -19,6 +20,10 @@ export default new class BLEDiscovery extends EventEmitter {
 
         /** List of discovered devices */
         this.devices = []
+
+        /** Listen for app state changes */
+        this.appState = 'active'
+        AppState.addEventListener('change', this.onAppState.bind(this))
 
     }
 
@@ -73,7 +78,7 @@ export default new class BLEDiscovery extends EventEmitter {
         // Start discovering devices
         //BLECentral.addEventListener('scan.added', this.onDeviceFound.bind(this))
         //BLECentral.addEventListener('scan.end', this.onScanEnd.bind(this))
-        //BLECentral.stopScan()
+        BLECentral.stopScan()
 
         // Start advertising this device
         //this.save()
@@ -128,23 +133,26 @@ export default new class BLEDiscovery extends EventEmitter {
     }
 
     /**
-     * Creates a list of characteristics for the current data.
+     * Creates a list of characteristics for the current data. This is pretty nasty, but "long read" characteristics seems
+     * EXTREMELY buggy on iOS.
      * 
      * @private
      * @returns {Characteristic[]} The characteristics to register on the service.
      */
     getCharacteristicsForData() {
 
-        // Add device ID to the data
-        let data = this.data/*Object.assign({}, this.data, {
-            _id: this.deviceID
-        })*/
+        // Copy data
+        let data = Object.assign({}, this.data)
+
+        // Ensure ID is set
+        if (!data.id)
+            data.id = this.deviceID
 
         // Create string
         let text = JSON.stringify(data)
 
         // Break into packets
-        let packetSize = 448
+        let packetSize = 20//448
         let packets = []
         for (let i = 0 ; i < text.length ; i += packetSize)
             packets.push(text.substring(i, i + packetSize))
@@ -191,7 +199,7 @@ export default new class BLEDiscovery extends EventEmitter {
         try {
 
             // Check if device has been read already
-            if (device.dataTimestamp > Date.now() - 1000 * 60) return console.log('Skipping device, already attempted a read: ' + (device.name || device.address))
+            if (device.dataTimestamp > Date.now() - 1000 * 60 * 5) return console.log('Skipping device, already attempted a read: ' + (device.data && device.data.name || device.name || device.address))
             device.dataTimestamp = Date.now()
 
             // Read data from device
@@ -228,7 +236,7 @@ export default new class BLEDiscovery extends EventEmitter {
             }
 
             // Remove existing device
-            this.devices = this.devices.filter(d => d.address != device.address)
+            this.devices = this.devices.filter(d => d.data.id != json.id)
 
             // Add device
             device.data = json
@@ -248,6 +256,8 @@ export default new class BLEDiscovery extends EventEmitter {
 
     /**
      * Called by BLECentral when the scan comes to an end.
+     * 
+     * @private
      */
     onScanEnd(error) {
 
@@ -255,6 +265,32 @@ export default new class BLEDiscovery extends EventEmitter {
         console.warn('Scan ended! ' + (error ? error.message : ''))
 
         // TODO: Start scan again
+
+    }
+
+    /**
+     * Called when the app foreground state changes.
+     * 
+     * @param {string} newState 
+     */
+    onAppState(newState) {
+
+        // Check if state changed
+        if (this.appState == newState) return
+        this.appState = newState
+
+        // Check it
+        if (newState == 'active' && this.enabled) {
+
+            // Restart scan
+            BLECentral.startScan([this.serviceName])
+
+        } else {
+
+            // Stop scan
+            BLECentral.stopScan()
+
+        }
 
     }
 

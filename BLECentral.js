@@ -39,7 +39,7 @@ export default new class BLECentral extends EventEmitter {
      * Begin scanning for devices.
      * 
      * @param {string[]} serviceFilter An optional list of service UUIDs. If set, will only return devices with these services available.
-     * @returns {Device[]} Resolves once the scan has started. Returns a list of already connected devices.
+     * @returns {Device[]} (todo) Resolves once the scan has started. Returns a list of already connected devices.
      */
     async startScan(serviceFilter = []) {
 
@@ -50,6 +50,20 @@ export default new class BLECentral extends EventEmitter {
         await NativeModules.RNBluetoothLe.scan(serviceFilter)
         this.scanning = true
         this.emit('scan.start')
+        this.emit('updated')
+
+    }
+
+    /** 
+     * Stop scanning for devices.
+     * 
+     */
+    async stopScan() {
+
+        // Send request to native code
+        await NativeModules.RNBluetoothLe.stopScan()
+        this.scanning = false
+        this.emit('scan.end')
         this.emit('updated')
 
     }

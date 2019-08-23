@@ -20,6 +20,7 @@
         self = [super init];
         
         // Setup operation queue
+        NSLog(@"[BLE] Init");
         self.queue = dispatch_queue_create("Bluetooth LE - Operations", DISPATCH_QUEUE_SERIAL);
         
         // Setup list of waiting operations
@@ -81,6 +82,7 @@
             
             // Failed, reject promise
             reject(err.domain, err.localizedDescription, err);
+            NSLog(@"[BLE] Error: %@", err.localizedDescription);
             
         }];
         
@@ -112,9 +114,11 @@
             };
             
             // Create manager, wait for power up
+            NSLog(@"[BLE] Peripheral: Waiting for power up...");
             CBPeripheralManager* peripheral = [[CBPeripheralManager alloc] initWithDelegate:self queue:dispatch_get_main_queue() options:opts];
             [self.events waitFor:@"power-up"];
             self.peripheralManager = peripheral;
+            NSLog(@"[BLE] Peripheral: Power up complete");
             
         }
         
@@ -141,7 +145,7 @@
     
     -(void)peripheralManager:(CBPeripheralManager *)peripheral willRestoreState:(NSDictionary<NSString *,id> *)dict {
         
-        NSLog(@"Bluetooth LE: State restored");
+        NSLog(@"[BLE] Peripheral: State restored");
         
     }
     
@@ -203,12 +207,14 @@
                 [self.peripheralManager stopAdvertising];
             
             // Start advertising
+            NSLog(@"[BLE] Peripheral: Start advertising...");
             [self.peripheralManager startAdvertising:@{
                 CBAdvertisementDataServiceUUIDsKey: @[
                     [CBUUID UUIDWithString:uuidStr]
                 ]
             }];
             [self.events waitFor:@"advertise"];
+            NSLog(@"[BLE] Peripheral: Advertise started");
             return nil;
             
         }];
@@ -236,9 +242,11 @@
             };
             
             // Create central manager, wait for power up
+            NSLog(@"[BLE] Central: Waiting for power up...");
             CBCentralManager* central = [[CBCentralManager alloc] initWithDelegate:self queue:dispatch_get_main_queue() options:opts];
             [self.events waitFor:@"power-up"];
             self.centralManager = central;
+            NSLog(@"[BLE] Central: Power up complete");
             
         }
         
@@ -265,9 +273,25 @@
             }
             
             // Start scan
+            NSLog(@"[BLE] Central: Scan started");
             [self.centralManager scanForPeripheralsWithServices:uuids options:nil];
             
             // Done
+            return @true;
+            
+        }];
+        
+    }
+    
+    /// Called when the user wants to stop the scan
+    RCT_REMAP_METHOD(stopScan, stopScanWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+        
+        // Do on operation queue
+        [self withResolver:resolve rejecter:reject do:^id{
+            
+            // Stop scan
+            NSLog(@"[BLE] Central: Scan stopped");
+            [self.centralManager stopScan];
             return @true;
             
         }];
@@ -302,7 +326,7 @@
         
         // Notify JS
         [self sendEventWithName:@"BLECentral:ScanAdded" body:device];
-        NSLog(@"Discovered peripheral: %@", peripheral.identifier);
+        NSLog(@"[BLE] Central: Discovered remote peripheral: %@", peripheral.identifier);
         
     }
     
@@ -333,8 +357,10 @@
             if (peripheral.state != CBPeripheralStateConnected) {
                 
                 // Do connection
+                NSLog(@"[BLE] Central: Connecting to peripheral %@", peripheral.identifier);
                 [self.centralManager connectPeripheral:peripheral options:nil];
                 [self.events waitFor:@"connect"];
+                NSLog(@"[BLE] Central: Connect complete");
                 
             }
             
@@ -348,6 +374,7 @@
             if (!service) {
                 
                 // Discover services
+                NSLog(@"[BLE] Central: Discovering services...");
                 [peripheral discoverServices:nil];
                 for (CBService* svc in [self.events waitFor:@"discover-services"])
                     if ([svc.UUID isEqual:[CBUUID UUIDWithString:serviceUUID]])
@@ -356,6 +383,8 @@
                 // If still not found, I guess it doesn't exist
                 if (!service)
                     @throw [NSError errorWithText:@"The specified service was not found on the remote device."];
+                
+                NSLog(@"[BLE] Central: Discover complete");
                 
             }
             
@@ -369,6 +398,7 @@
             if (!characteristic) {
                 
                 // Discover characteristics
+                NSLog(@"[BLE] Central: Discovering characteristics...");
                 [peripheral discoverCharacteristics:nil forService:service];
                 for (CBCharacteristic* chr in [self.events waitFor:@"discover-characteristics"])
                     if ([chr.UUID isEqual:[CBUUID UUIDWithString:chrUUID]])
@@ -378,15 +408,44 @@
                 if (!characteristic)
                     @throw [NSError errorWithText:@"The specified characteristic was not found on the remote device."];
                 
+                NSLog(@"[BLE] Central: Discover complete");
+                
             }
             
-            // Read value
-            [peripheral readValueForCharacteristic:characteristic];
-            NSData* data = [self.events waitFor:@"read-characteristic"];
-            if (!data.length)
-                return @"";
+            // Check if characteristic can be read
+            if (!(characteristic.properties & CBCharacteristicPropertyRead))
+                @throw [NSError errorWithText:@"This characteristic is not readable."];
+            
+            // Try to read the value
+            NSData* data = nil;
+            @try {
+            
+                // Read value
+                NSLog(@"[BLE] Central: Reading characteristic...");
+                [peripheral readValueForCharacteristic:characteristic];
+                data = [self.events waitFor:@"read-characteristic"];
+                NSLog(@"[BLE] Central: Read complete");
+                
+            } @catch (NSError* err) {
+                
+                // Check if a value does actually exist already, if so, use the cached value
+                if (characteristic.value) {
+                    
+                    // Failed, but we have a cached value to use
+                    NSLog(@"[BLE] Central: Read failed, using cached value: %@", err.localizedDescription);
+                    data = characteristic.value;
+                
+                } else {
+                    
+                    // Failed
+                    @throw err;
+                    
+                }
+                
+            }
             
             // Convert to string
+            NSLog(@"[BLE] Central: Characteristic read complete");
             return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
             
         }];

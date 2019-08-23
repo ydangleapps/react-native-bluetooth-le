@@ -10,6 +10,8 @@ import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.util.Log;
 
+import java.util.Arrays;
+
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class GATTListener extends BluetoothGattServerCallback {
 
@@ -50,28 +52,29 @@ public class GATTListener extends BluetoothGattServerCallback {
     public void onCharacteristicReadRequest(BluetoothDevice device, int requestId, int offset, BluetoothGattCharacteristic characteristic) {
         super.onCharacteristicReadRequest(device, requestId, offset, characteristic);
 
-        // We don't support offsets
-        if (offset != 0) {
-            Log.i("BLE GATT", "Device tried to read a characteristic, but we don't support offsets.");
-            module.gattServer.sendResponse(device, requestId, BluetoothGatt.GATT_INVALID_OFFSET, offset, null);
-            return;
-        }
-
         // TODO: Support dynamic data, query back to Javascript
 
         // Check if characteristic has data
-        if (characteristic.getValue() != null) {
+        byte[] data = null;
+        if (characteristic.getValue() != null)
+            data = characteristic.getValue();
 
-            // Send data back
-            Log.i("BLE GATT", "Device read characteristic: " + characteristic.getUuid());
-            module.gattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, characteristic.getValue());
-            return;
+        // Send empty if no data
+        if (data == null)
+            data = new byte[] {};
+
+        // If offset requested, slice the data
+        if (offset > 0) {
+
+            // Slice it
+            int offset2 = Math.min(data.length, offset);
+            data = Arrays.copyOfRange(data, offset2, data.length - offset2);
 
         }
 
-        // We don't know how to serve this request
-        Log.i("BLE GATT", "Device tried to read a characteristic, but we don't have any data for it.");
-        module.gattServer.sendResponse(device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null);
+        // Send data back
+        Log.i("BLE GATT", "Remote device read characteristic (from offset " + offset + ", data length " + data.length + "): " + characteristic.getUuid());
+        module.gattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, data);
 
     }
 

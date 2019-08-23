@@ -289,7 +289,6 @@ public class BLE {
 
                 // Stop existing scan if any
                 if (currentScan != null) {
-                    currentScan.onScanStopped(new Exception("Another scan was started."));
                     scanner.stopScan(currentScan);
                 }
 
@@ -331,6 +330,31 @@ public class BLE {
                 listener.onStartFailed(ex);
 
             }
+
+        });
+
+    }
+
+    /**
+     * Stop scanning for remote devices nearby.
+     *
+     */
+    public void stopScan() {
+
+        // Do on queue
+        executor.submit(() -> {
+
+            // Stop if not scanning
+            if (currentScan == null)
+                return;
+
+            // Get discoverer
+            BluetoothLeScanner scanner = adapter.getBluetoothLeScanner();
+
+            // Stop existing scan if any
+            scanner.stopScan(currentScan);
+            currentScan = null;
+            Log.i("BLE", "Scan stopped");
 
         });
 

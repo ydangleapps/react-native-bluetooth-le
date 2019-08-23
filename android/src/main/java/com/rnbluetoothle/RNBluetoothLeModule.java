@@ -334,4 +334,12 @@ public class RNBluetoothLeModule extends ReactContextBaseJavaModule {
         return new String(hexChars);
     }
 
+    @ReactMethod
+    public void stopScan() {
+
+        // Stop any current scan
+        BLE.get(getReactApplicationContext()).stopScan();
+
+    }
+
 }
