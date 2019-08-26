@@ -21,9 +21,27 @@ export default new class BLEDiscovery extends EventEmitter {
         /** List of discovered devices */
         this.devices = []
 
+        /** Last error */
+        this.error = null
+
         /** Listen for app state changes */
         this.appState = 'active'
         AppState.addEventListener('change', this.onAppState.bind(this))
+
+    }
+
+    /** Current state of discovery */
+    get state() {
+
+        // Check state and return a string
+        if (!this.isSetup)
+            return "Not set up"
+        else if (!this.enabled)
+            return "Disabled"
+        else if (this.error)
+            return this.error.message
+        else
+            return "Enabled"
 
     }
 
@@ -52,18 +70,32 @@ export default new class BLEDiscovery extends EventEmitter {
     /** Call this to enable discovery and advertisement. */
     async enable() {
 
-        // Stop if already enabled
-        if (this.enabled) return
-        this.enabled = true
+        // Catch errors
+        try {
 
-        // Start advertising this device
-        await this.save()
+            // Stop if already enabled
+            if (this.enabled) return
+            this.enabled = true
 
-        // Start discovering devices
-        BLECentral.addEventListener('scan.added', this.onDeviceFound.bind(this))
-        BLECentral.addEventListener('scan.updated', this.onDeviceFound.bind(this))
-        BLECentral.addEventListener('scan.end', this.onScanEnd.bind(this))
-        await BLECentral.startScan([this.serviceName])
+            // Start advertising this device
+            await this.save()
+
+            // Start discovering devices
+            BLECentral.addEventListener('scan.added', this.onDeviceFound.bind(this))
+            BLECentral.addEventListener('scan.updated', this.onDeviceFound.bind(this))
+            BLECentral.addEventListener('scan.end', this.onScanEnd.bind(this))
+            await BLECentral.startScan([this.serviceName])
+
+            // Enabled successfully
+            this.error = null
+
+        } catch (err) {
+
+            // Store error
+            this.error = err
+            throw err
+
+        }
 
     }
 
