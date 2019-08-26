@@ -272,7 +272,6 @@ export default new class BLEDiscovery extends EventEmitter {
 
             // Add device
             device.data = json
-            console.warn('Found nearby device ' + (device.data.name || device.name || device.address));
             this.devices.push(device)
             this.emit('device.found', device)
             this.emit('updated')
