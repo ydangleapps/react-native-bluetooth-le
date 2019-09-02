@@ -231,7 +231,7 @@ export default new class BLEDiscovery extends EventEmitter {
         try {
 
             // Check if device has been read already
-            if (device.dataTimestamp > Date.now() - 1000 * 60 * 5) return console.log('Skipping device, already attempted a read: ' + (device.data && device.data.name || device.name || device.address))
+            if (device.dataTimestamp > Date.now() - 1000 * 60 * 5) return //console.log('Skipping device, already attempted a read: ' + (device.data && device.data.name || device.name || device.address))
             device.dataTimestamp = Date.now()
 
             // Read data from device
