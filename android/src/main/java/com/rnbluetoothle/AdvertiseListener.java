@@ -3,8 +3,9 @@ package com.rnbluetoothle;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseSettings;
 import android.os.Build;
-import android.support.annotation.RequiresApi;
 import android.util.Log;
+
+import androidx.annotation.RequiresApi;
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class AdvertiseListener extends AdvertiseCallback {
