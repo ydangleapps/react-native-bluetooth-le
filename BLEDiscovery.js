@@ -5,7 +5,7 @@ import Characteristic from './Characteristic'
 import BLEPeripheral from './BLEPeripheral'
 import EventEmitter from './EventEmitter'
 import BLECentral from './BLECentral'
-import { AppState } from 'react-native'
+import { AppState, PermissionsAndroid } from 'react-native'
 
 /**
  * This class allows for advertising data to other nearby devices, and for discovering data advertised by other devices.
@@ -76,6 +76,18 @@ export default new class BLEDiscovery extends EventEmitter {
             // Stop if already enabled
             if (this.enabled) return
             this.enabled = true
+
+            // Request permissions on Android
+            if (Platform.OS == 'android') {
+
+                // Request them
+                let permissions = [ PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION, PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT, PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN, PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE ]
+                let permissionResult = await PermissionsAndroid.requestMultiple(permissions)
+                let missingPermissions = permissions.filter(p => permissionResult[p] != PermissionsAndroid.RESULTS.GRANTED)
+                if (missingPermissions.length)
+                    console.warn(`[BLEDiscovery] Permissions not granted: ${missingPermissions.join(', ')}`)
+
+            }
 
             // Start advertising this device
             await this.save()
